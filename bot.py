@@ -1,7 +1,7 @@
 import logging
 import os
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackQueryHandler, CallbackContext
 from telegram.constants import ParseMode
 
 # Configure logging
@@ -25,7 +25,7 @@ class MovieBot:
         """Check if user is the admin."""
         return user_id == ADMIN_USER_ID
     
-    async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def start(self, update: Update, context: CallbackContext):
         """Send a message when the command /start is issued."""
         user_id = update.effective_user.id
         
@@ -46,7 +46,7 @@ class MovieBot:
         )
         self.waiting_for_data[user_id]['step'] = 'poster'
     
-    async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def handle_message(self, update: Update, context: CallbackContext):
         """Handle incoming messages based on the current step."""
         user_id = update.effective_user.id
         
@@ -103,7 +103,7 @@ class MovieBot:
             self.waiting_for_data[user_id]['deep_link'] = update.message.text
             await self.show_preview(update, context, user_id)
     
-    async def show_preview(self, update: Update, context: ContextTypes.DEFAULT_TYPE, user_id: int):
+    async def show_preview(self, update: Update, context: CallbackContext, user_id: int):
         """Show preview of the post with Send button."""
         data = self.waiting_for_data[user_id]
         
@@ -112,11 +112,10 @@ class MovieBot:
         
         # Create the caption preview
         caption = (
-            f"{data['sinhala_name']} {data['year']}\n"
-            f"{data['english_name']} {data['year']}\n\n"
+            f"<b>{data['sinhala_name']} {data['year']}</b>\n"
+            f"<b>{data['english_name']} {data['year']}</b>\n\n"
             f"{CHANNEL_ID}\n\n"
-            f'<blockquote><a href="{help_link}">🤖 bot ගෙන් film එක ගන්න තේරෙන්නේ නැත්නම් මෙතනින් බලන්න 👈</a></blockquote>\n\n'
-            f"🔗 Download: {data['deep_link']}"
+            f'<blockquote><a href="{help_link}">🤖 bot ගෙන් film එක ගන්න තේරෙන්නේ නැත්නම් මෙතනින් බලන්න 👈</a></blockquote>'
         )
         
         # Create keyboard with Send and Cancel buttons
@@ -132,14 +131,14 @@ class MovieBot:
         await context.bot.send_photo(
             chat_id=update.effective_chat.id,
             photo=data['poster'],
-            caption=f"📋 PREVIEW:\n\n{caption}\n\n👆 Click 'SEND TO CHANNEL' to post this to {CHANNEL_ID}",
+            caption=f"📋 PREVIEW:\n\n{caption}\n\n🔗 Download: {data['deep_link']}\n\n👆 Click 'SEND TO CHANNEL' to post this to {CHANNEL_ID}",
             reply_markup=reply_markup,
             parse_mode=ParseMode.HTML
         )
         
         self.waiting_for_data[user_id]['step'] = 'preview_shown'
     
-    async def handle_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def handle_callback(self, update: Update, context: CallbackContext):
         """Handle button callbacks."""
         query = update.callback_query
         
@@ -163,7 +162,7 @@ class MovieBot:
         elif action == "cancel":
             await self.cancel_post(query, user_id)
     
-    async def send_to_channel(self, query, context: ContextTypes.DEFAULT_TYPE, user_id: int):
+    async def send_to_channel(self, query, context: CallbackContext, user_id: int):
         """Send the movie post to the channel."""
         data = self.waiting_for_data.get(user_id)
         
@@ -176,17 +175,17 @@ class MovieBot:
         # Create the help link
         help_link = f"https://t.me/{CHANNEL_ID.replace('@', '')}/{HELP_MESSAGE_ID}"
         
-        # Create the final caption
+        # Create the final caption (without download link in text)
         caption = (
-            f"{data['sinhala_name']} {data['year']}\n"
-            f"{data['english_name']} {data['year']}\n\n"
+            f"<b>{data['sinhala_name']} {data['year']}</b>\n"
+            f"<b>{data['english_name']} {data['year']}</b>\n\n"
             f"{CHANNEL_ID}\n\n"
             f'<blockquote><a href="{help_link}">🤖 bot ගෙන් film එක ගන්න තේරෙන්නේ නැත්නම් මෙතනින් බලන්න 👈</a></blockquote>'
         )
         
-        # Create inline keyboard for download button
+        # Create inline keyboard button with emoji and URL text
         keyboard = [
-            [InlineKeyboardButton("🎥 DOWNLOD 📥", url=data['deep_link'])]
+            [InlineKeyboardButton("🎬 DOWNLOD 📥", url=data['deep_link'])]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
@@ -236,7 +235,7 @@ class MovieBot:
             caption="❌ Post cancelled.\n\nUse /start to create a new movie post."
         )
     
-    async def cancel_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def cancel_command(self, update: Update, context: CallbackContext):
         """Cancel the current operation via command."""
         user_id = update.effective_user.id
         
