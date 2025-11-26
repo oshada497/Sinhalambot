@@ -1,8 +1,28 @@
 import logging
 import os
+from threading import Thread
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackQueryHandler, CallbackContext
 from telegram.constants import ParseMode
+from http.server import HTTPServer, BaseHTTPRequestHandler
+
+# Simple HTTP handler for Render health checks
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'text/plain')
+        self.end_headers()
+        self.wfile.write(b'Bot is running!')
+    
+    def log_message(self, format, *args):
+        pass  # Suppress HTTP logs
+
+def run_health_server():
+    """Run a simple HTTP server for Render health checks."""
+    port = int(os.environ.get('PORT', 10000))
+    server = HTTPServer(('0.0.0.0', port), HealthCheckHandler)
+    logger.info(f"Health check server running on port {port}")
+    server.serve_forever()
 
 # Configure logging
 logging.basicConfig(
@@ -253,6 +273,10 @@ def main():
     if not BOT_TOKEN:
         logger.error("BOT_TOKEN not found in environment variables!")
         return
+    
+    # Start health check server in background thread
+    health_thread = Thread(target=run_health_server, daemon=True)
+    health_thread.start()
     
     # Create the Application
     application = Application.builder().token(BOT_TOKEN).build()
